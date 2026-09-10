@@ -418,7 +418,14 @@
         <div class="meta" id="px_totalMeta"></div>
       </div>
       <table class="px-table" id="px_previewTable"></table>
-      <button id="px_downloadBtn">Download priced sheet</button>
+      <div class="row" style="margin-top:4px;">
+        <div class="field">
+          <label class="small">Vendor password (to unhide the price column)</label>
+          <input type="text" id="px_vendorPassword" value="rectek2026" placeholder="e.g. rectek2026">
+        </div>
+      </div>
+      <div class="hint">The downloaded file hides the Wholesale Price column. A vendor can right-click the columns and choose "Unhide," but Excel will ask for this password first (Review tab → Unprotect Sheet also asks for it).</div>
+      <button id="px_downloadBtn" style="margin-top:14px;">Download priced sheet</button>
     </div>
   </div>
 
@@ -1068,6 +1075,33 @@ function escapeHtml(v){
     outData.push(['', '', '']);
     outData.push(['TOTAL', total, '']);
     const ws = XLSX.utils.aoa_to_sheet(outData);
+
+    // Hide the Wholesale Price column (column B) and lock the sheet so it can't
+    // be unhidden without the password below. This is standard Excel sheet
+    // protection — a deterrent for casual viewers, not strong encryption.
+    const pw = (document.getElementById('px_vendorPassword').value || '').trim();
+    ws['!cols'] = [ { wch: 16 }, { wch: 16, hidden: !!pw }, { wch: 12 } ];
+    if (pw){
+      ws['!protect'] = {
+        password: pw,
+        selectLockedCells: true,
+        selectUnlockedCells: true,
+        formatCells: false,
+        formatColumns: false,
+        formatRows: false,
+        insertColumns: false,
+        insertRows: false,
+        insertHyperlinks: false,
+        deleteColumns: false,
+        deleteRows: false,
+        sort: false,
+        autoFilter: false,
+        pivotTables: false,
+        objects: false,
+        scenarios: false
+      };
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Priced SKUs');
     XLSX.writeFile(wb, qFileBaseName + '_priced.xlsx');

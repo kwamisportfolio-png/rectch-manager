@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rectch Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#0B0B0B;
+    --panel:#141414;
+    --panel-2:#1B1B1B;
+    --line:#2E2E2E;
+    --text:#F2F2F0;
+    --muted:#8C8C89;
+    --accent:#FFFFFF;
+    --wa:#25D366;
+    --wa-dim:#1B9C4B;
+    --px:#E0A144;
+    --px-dim:#B8813A;
+    --warn:#E0A144;
+    --pending:#333;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    min-height:100vh;
+  }
+  .app{max-width:900px;margin:0 auto;padding:36px 18px 60px;}
+
+  /* ---- shared chrome ---- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:28px;
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  .brand .mark{
+    width:10px;height:10px;background:var(--text);display:inline-block;
+  }
+  .brand h1{
+    font-size:15px;
+    letter-spacing:0.12em;
+    margin:0;
+    font-weight:700;
+  }
+  .back-btn{
+    display:none;
+    font-size:13px;
+    color:var(--muted);
+    background:none;
+    border:1px solid var(--line);
+    padding:8px 14px;
+    cursor:pointer;
+  }
+  .back-btn:hover{border-color:var(--text);color:var(--text);}
+  .back-btn.show{display:inline-block;}
+
+  h2.section-title{
+    font-size:12px;
+    letter-spacing:0.08em;
+    color:var(--muted);
+    margin:0 0 16px 0;
+    font-weight:600;
+  }
+
+  /* ---- dashboard ---- */
+  #dashboard .lede{
+    color:var(--muted);
+    font-size:14px;
+    margin:0 0 30px 0;
+    max-width:56ch;
+    line-height:1.5;
+  }
+  .card-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:14px;
+  }
+  @media (max-width:760px){ .card-grid{grid-template-columns:1fr;} }
+  .app-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    padding:26px 22px;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+    text-align:left;
+  }
+  .app-card:hover{border-color:var(--text);background:var(--panel-2);}
+  .app-card .tag{
+    font-size:11px;
+    letter-spacing:0.06em;
+    color:var(--muted);
+    margin-bottom:14px;
+  }
+  .app-card .tag.wa{color:var(--wa);}
+  .app-card .tag.px{color:var(--px);}
+  .app-card h3{
+    font-size:18px;
+    margin:0 0 8px 0;
+    font-weight:700;
+  }
+  .app-card p{
+    font-size:13.5px;
+    color:var(--muted);
+    line-height:1.5;
+    margin:0 0 18px 0;
+  }
+  .app-card .enter{
+    font-size:13px;
+    font-weight:600;
+    color:var(--text);
+  }
+  .app-card .enter::after{content:' →';}
+
+  /* ---- tool views ---- */
+  .tool-view{display:none;}
+  .tool-view.show{display:block;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    padding:22px;
+    margin-bottom:16px;
+  }
+  .panel h2{font-size:12px;letter-spacing:0.06em;color:var(--muted);margin:0 0 16px 0;font-weight:600;}
+  .drop{
+    border:1.5px dashed var(--line);
+    padding:26px 18px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .drop:hover, .drop.drag{border-color:var(--text);background:var(--panel-2);}
+  .drop input{display:none;}
+  .drop-text{font-size:14px;}
+  .drop-hint{font-size:12px;color:var(--muted);margin-top:4px;}
+  .filename{margin-top:12px;font-family:'SF Mono','Menlo',monospace;font-size:12.5px;color:var(--text);display:none;}
+  .row{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;}
+  .field{flex:1;min-width:160px;}
+  label.small{font-size:12px;color:var(--muted);display:block;margin-bottom:6px;}
+  select, input[type=text], textarea{
+    width:100%;
+    font-family:inherit;
+    font-size:14px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    background:var(--bg);
+    color:var(--text);
+  }
+  select:focus, input:focus, textarea:focus{outline:none;border-color:var(--text);}
+  textarea{resize:vertical;min-height:90px;line-height:1.5;}
+  .cc-row{display:flex;gap:8px;}
+  .cc-row input{max-width:80px;text-align:center;}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px;}
+  .preview{
+    margin-top:14px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    padding:12px 14px;
+    font-size:13px;
+    white-space:pre-wrap;
+    min-height:20px;
+  }
+  button{
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    padding:11px 20px;
+    border:1px solid var(--text);
+    background:var(--text);
+    color:#0B0B0B;
+    cursor:pointer;
+    transition:opacity .15s ease;
+  }
+  button:hover:not(:disabled){opacity:0.82;}
+  button:disabled{background:var(--pending);border-color:var(--pending);color:var(--muted);cursor:not-allowed;}
+  button.secondary{background:transparent;border:1px solid var(--line);color:var(--text);}
+  button.secondary:hover{border-color:var(--text);opacity:1;}
+  button.wa-btn{background:var(--wa);border-color:var(--wa);color:#07220F;}
+  button.wa-btn:hover:not(:disabled){background:var(--wa-dim);color:#fff;opacity:1;}
+  .status{font-size:13px;color:var(--muted);margin-top:12px;min-height:16px;}
+  .status.error{color:#E07A5F;}
+  .status.ok{color:var(--text);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th, td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);}
+  th{color:var(--muted);font-weight:600;font-size:12px;}
+  .num{font-family:'SF Mono','Menlo',monospace;font-size:12.5px;}
+
+  /* row filter result */
+  .rf-result{display:none;}
+  .rf-result.show{display:block;}
+  .rf-count{font-size:18px;margin-bottom:14px;}
+  .rf-count b{color:var(--text);}
+  .preview-note{font-size:12px;color:var(--muted);margin-bottom:10px;font-family:'SF Mono','Menlo',monospace;}
+  table.rf-table{display:block;overflow-x:auto;white-space:nowrap;}
+
+  /* whatsapp sender */
+  .wa-result{display:none;}
+  .wa-result.show{display:block;}
+  .send-center{background:var(--panel-2);border:1px solid var(--line);padding:20px;margin-bottom:20px;}
+  .sc-label{font-size:11px;color:var(--muted);letter-spacing:0.03em;margin-bottom:8px;}
+  .sc-name{font-size:20px;font-weight:700;}
+  .sc-number{color:var(--muted);margin-top:2px;}
+  .sc-message{margin-top:12px;background:var(--bg);border:1px solid var(--line);padding:12px 14px;font-size:13.5px;white-space:pre-wrap;line-height:1.5;}
+  .sc-actions{display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap;}
+  .sc-actions button{padding:13px 24px;font-size:15px;}
+  .sc-hint{font-size:12px;color:var(--muted);margin-top:10px;}
+  .sc-done{font-size:16px;text-align:center;padding:10px 0;}
+  .summary{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .summary .count{font-size:14px;color:var(--muted);}
+  .summary .count b{color:var(--text);}
+  .progress-bar{height:4px;background:var(--pending);overflow:hidden;margin-bottom:18px;}
+  .progress-fill{height:100%;background:var(--wa);width:0%;transition:width .2s ease;}
+  tr.sent{opacity:0.45;}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;background:var(--pending);color:var(--muted);}
+  .badge.sent{background:rgba(37,211,102,.15);color:var(--wa);}
+  .send-btn{padding:6px 14px;font-size:13px;}
+  .col-select{display:none;}
+  .col-select.show{display:flex;}
+
+  /* sku price lookup */
+  button.px-btn{background:var(--px);border-color:var(--px);color:#2A1B02;}
+  button.px-btn:hover:not(:disabled){background:var(--px-dim);color:#fff;opacity:1;}
+  .px-result{display:none;}
+  .px-result.show{display:block;}
+  .px-total{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    padding:20px 22px;
+    margin-bottom:18px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .px-total .label{font-size:12px;color:var(--muted);letter-spacing:0.05em;}
+  .px-total .amount{font-size:28px;font-weight:700;}
+  .px-total .meta{font-size:12.5px;color:var(--muted);}
+  tr.notfound{color:var(--warn);}
+  tr.notfound td{color:var(--warn);}
+  .badge.notfound{background:rgba(224,161,68,.15);color:var(--px);}
+  .badge.found{background:rgba(255,255,255,.08);color:var(--text);}
+  table.px-table{display:block;overflow-x:auto;white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand"><span class="mark"></span><h1>RECTCH MANAGER</h1></div>
+    <button class="back-btn" id="backBtn">← Back</button>
+  </div>
+
+  <!-- ================= DASHBOARD ================= -->
+  <div id="dashboard">
+    <p class="lede">Internal tools for running Rectek. Pick one below.</p>
+    <div class="card-grid">
+      <div class="app-card" id="openFilter">
+        <div class="tag">SPREADSHEETS</div>
+        <h3>Excel Row Filter</h3>
+        <p>Upload a spreadsheet, filter rows by keyword, and export a clean file with just the matches.</p>
+        <div class="enter">Open</div>
+      </div>
+      <div class="app-card" id="openSender">
+        <div class="tag wa">MESSAGING</div>
+        <h3>WhatsApp Bulk Sender</h3>
+        <p>Load customer numbers from a spreadsheet and message every contact with one click each.</p>
+        <div class="enter">Open</div>
+      </div>
+      <div class="app-card" id="openPrice">
+        <div class="tag px">PRICING</div>
+        <h3>SKU Price Lookup</h3>
+        <p>Match a list of SKUs against your wholesale price database and get a total cost instantly.</p>
+        <div class="enter">Open</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= EXCEL ROW FILTER ================= -->
+  <div class="tool-view" id="view-filter">
+    <h2 class="section-title">EXCEL ROW FILTER</h2>
+
+    <div class="panel">
+      <h2>1. FILE</h2>
+      <div class="drop" id="rf_drop">
+        <input type="file" id="rf_fileInput" accept=".xlsx,.xls,.csv">
+        <div class="drop-text">Click to choose a file, or drag one here</div>
+        <div class="drop-hint">.xlsx, .xls, or .csv</div>
+        <div class="filename" id="rf_filename"></div>
+      </div>
+      <div class="row" style="margin-top:22px;">
+        <div class="field">
+          <label class="small">Keyword</label>
+          <input type="text" id="rf_keyword" placeholder="e.g. Accra, out of stock, warranty…">
+        </div>
+        <div class="field" style="flex:0 0 auto;align-self:flex-end;">
+          <button id="rf_filterBtn" disabled>Filter</button>
+        </div>
+      </div>
+      <div class="status" id="rf_status"></div>
+    </div>
+
+    <div class="panel rf-result" id="rf_result">
+      <div class="rf-count" id="rf_resultCount"></div>
+      <div class="preview-note" id="rf_previewNote"></div>
+      <table class="rf-table" id="rf_previewTable"></table>
+      <button id="rf_downloadBtn">Download filtered file</button>
+    </div>
+  </div>
+
+  <!-- ================= WHATSAPP BULK SENDER ================= -->
+  <div class="tool-view" id="view-sender">
+    <h2 class="section-title">WHATSAPP BULK SENDER</h2>
+
+    <div class="panel">
+      <h2>1. SPREADSHEET</h2>
+      <div class="drop" id="wa_drop">
+        <input type="file" id="wa_fileInput" accept=".xlsx,.xls,.csv">
+        <div class="drop-text">Click to choose a file, or drag one here</div>
+        <div class="drop-hint">.xlsx, .xls, or .csv</div>
+      </div>
+      <div class="row col-select" id="wa_colSelectRow">
+        <div class="field">
+          <label class="small">Sheet</label>
+          <select id="wa_sheetSelect"></select>
+        </div>
+        <div class="field">
+          <label class="small">Phone number column</label>
+          <select id="wa_phoneCol"></select>
+        </div>
+        <div class="field">
+          <label class="small">Name column (for personalization)</label>
+          <select id="wa_nameCol"></select>
+        </div>
+      </div>
+      <div class="status" id="wa_loadStatus"></div>
+    </div>
+
+    <div class="panel">
+      <h2>2. COUNTRY CODE</h2>
+      <div class="cc-row">
+        <input type="text" id="wa_countryCode" value="233" maxlength="4">
+        <div class="hint" style="align-self:center;">Default is Ghana (233). Any leading 0 is removed, then this code is added in front.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>3. MESSAGE</h2>
+      <textarea id="wa_messageBox" placeholder="Hi {{name}}, this is Rectek — following up on your recent order...">Hi {{name}}, this is Rectek 👋 — just checking in on your recent order. Let us know if you need anything!</textarea>
+      <div class="hint">Use <span class="num">{{name}}</span> to insert each contact's name automatically.</div>
+      <div class="preview" id="wa_messagePreview"></div>
+    </div>
+
+    <div class="panel">
+      <h2>4. GENERATE LIST</h2>
+      <button class="wa-btn" id="wa_generateBtn" disabled>Build contact list</button>
+      <div class="status" id="wa_genStatus"></div>
+    </div>
+
+    <div class="panel wa-result" id="wa_result">
+      <div class="send-center" id="wa_sendCenter"></div>
+      <div class="summary">
+        <div class="count"><b id="wa_sentCount">0</b> of <b id="wa_totalCount">0</b> opened</div>
+        <button class="secondary" id="wa_downloadLog">Download log (CSV)</button>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="wa_progressFill"></div></div>
+      <table id="wa_contactTable"></table>
+    </div>
+  </div>
+
+  <!-- ================= SKU PRICE LOOKUP ================= -->
+  <div class="tool-view" id="view-price">
+    <h2 class="section-title">SKU PRICE LOOKUP</h2>
+
+    <div class="panel">
+      <h2>1. SKU LIST TO LOOK UP</h2>
+      <div class="drop" id="px_qDrop">
+        <input type="file" id="px_qFileInput" accept=".xlsx,.xls,.csv">
+        <div class="drop-text">Click to choose the file with the SKUs you want priced, or drag one here</div>
+        <div class="drop-hint">.xlsx, .xls, or .csv</div>
+        <div class="filename" id="px_qFilename"></div>
+      </div>
+      <div class="row col-select" id="px_qColSelectRow">
+        <div class="field">
+          <label class="small">Sheet</label>
+          <select id="px_qSheetSelect"></select>
+        </div>
+        <div class="field">
+          <label class="small">SKU column</label>
+          <select id="px_qSkuCol"></select>
+        </div>
+      </div>
+      <div class="status" id="px_qStatus"></div>
+    </div>
+
+    <div class="panel">
+      <h2>2. MATCH</h2>
+      <button class="px-btn" id="px_matchBtn" disabled>Find prices</button>
+      <button class="secondary" id="px_refreshBtn" style="margin-left:8px;">Refresh price list</button>
+      <div class="status" id="px_matchStatus"></div>
+      <div class="status" id="px_dbStatus"></div>
+    </div>
+
+    <div class="panel px-result" id="px_result">
+      <div class="px-total">
+        <div>
+          <div class="label">TOTAL WHOLESALE COST</div>
+          <div class="amount" id="px_totalAmount">0.00</div>
+        </div>
+        <div class="meta" id="px_totalMeta"></div>
+      </div>
+      <table class="px-table" id="px_previewTable"></table>
+      <button id="px_downloadBtn">Download priced sheet</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+const dashboard = document.getElementById('dashboard');
+const backBtn = document.getElementById('backBtn');
+const views = {
+  filter: document.getElementById('view-filter'),
+  sender: document.getElementById('view-sender'),
+  price: document.getElementById('view-price')
+};
+
+function showDashboard(){
+  dashboard.style.display = 'block';
+  Object.values(views).forEach(v => v.classList.remove('show'));
+  backBtn.classList.remove('show');
+}
+function showView(key){
+  dashboard.style.display = 'none';
+  Object.values(views).forEach(v => v.classList.remove('show'));
+  views[key].classList.add('show');
+  backBtn.classList.add('show');
+}
+document.getElementById('openFilter').addEventListener('click', () => showView('filter'));
+document.getElementById('openSender').addEventListener('click', () => showView('sender'));
+document.getElementById('openPrice').addEventListener('click', () => showView('price'));
+backBtn.addEventListener('click', showDashboard);
+
+function escapeHtml(v){
+  return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ============================================================
+   TOOL 1: EXCEL ROW FILTER
+   ============================================================ */
+(function(){
+  const drop = document.getElementById('rf_drop');
+  const fileInput = document.getElementById('rf_fileInput');
+  const filenameEl = document.getElementById('rf_filename');
+  const keywordInput = document.getElementById('rf_keyword');
+  const filterBtn = document.getElementById('rf_filterBtn');
+  const statusEl = document.getElementById('rf_status');
+  const resultEl = document.getElementById('rf_result');
+  const resultCountEl = document.getElementById('rf_resultCount');
+  const previewNoteEl = document.getElementById('rf_previewNote');
+  const previewTable = document.getElementById('rf_previewTable');
+  const downloadBtn = document.getElementById('rf_downloadBtn');
+
+  let originalFilename = 'spreadsheet';
+  let header = [];
+  let rows = [];
+  let filteredRows = [];
+
+  function setStatus(msg, type){
+    statusEl.textContent = msg || '';
+    statusEl.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('drag');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files.length) handleFile(e.target.files[0]);
+  });
+
+  function handleFile(file){
+    originalFilename = file.name.replace(/\.[^.]+$/, '');
+    setStatus('Reading ' + file.name + '…');
+    resultEl.classList.remove('show');
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try{
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheetName = wb.SheetNames[0];
+        const sheet = wb.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        if (!json.length){
+          setStatus('That file looks empty.', 'error');
+          return;
+        }
+        header = json[0];
+        rows = json.slice(1);
+        filenameEl.textContent = file.name + '  (' + rows.length + ' rows, sheet "' + sheetName + '")';
+        filenameEl.style.display = 'block';
+        filterBtn.disabled = false;
+        setStatus('Loaded. Enter a keyword and click Filter.', 'ok');
+      }catch(err){
+        setStatus('Could not read that file: ' + err.message, 'error');
+      }
+    };
+    reader.onerror = () => setStatus('Could not read that file.', 'error');
+    reader.readAsArrayBuffer(file);
+  }
+
+  filterBtn.addEventListener('click', () => {
+    const kw = keywordInput.value.trim().toLowerCase();
+    if (!kw){
+      setStatus('Type a keyword first.', 'error');
+      return;
+    }
+    filteredRows = rows.filter(row =>
+      row.some(cell => String(cell).toLowerCase().includes(kw))
+    );
+
+    if (!filteredRows.length){
+      resultEl.classList.remove('show');
+      setStatus('No rows matched "' + keywordInput.value.trim() + '".', 'error');
+      return;
+    }
+
+    setStatus('');
+    resultCountEl.innerHTML = 'Found <b>' + filteredRows.length + '</b> matching row' + (filteredRows.length === 1 ? '' : 's') + ' out of ' + rows.length + '.';
+
+    const previewRows = filteredRows.slice(0, 10);
+    previewNoteEl.textContent = 'Preview (first ' + previewRows.length + ' of ' + filteredRows.length + '):';
+    let html = '<thead><tr>' + header.map(h => '<th>' + escapeHtml(h) + '</th>').join('') + '</tr></thead><tbody>';
+    previewRows.forEach(row => {
+      html += '<tr>' + header.map((_, i) => '<td>' + escapeHtml(row[i] !== undefined ? row[i] : '') + '</td>').join('') + '</tr>';
+    });
+    html += '</tbody>';
+    previewTable.innerHTML = html;
+
+    resultEl.classList.add('show');
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const outData = [header, ...filteredRows];
+    const ws = XLSX.utils.aoa_to_sheet(outData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Filtered');
+    const kw = keywordInput.value.trim().replace(/[^a-z0-9]+/gi, '_').slice(0, 30);
+    XLSX.writeFile(wb, originalFilename + '_filtered_' + kw + '.xlsx');
+  });
+})();
+
+/* ============================================================
+   TOOL 2: WHATSAPP BULK SENDER
+   ============================================================ */
+(function(){
+  const drop = document.getElementById('wa_drop');
+  const fileInput = document.getElementById('wa_fileInput');
+  const colSelectRow = document.getElementById('wa_colSelectRow');
+  const sheetSelect = document.getElementById('wa_sheetSelect');
+  const phoneCol = document.getElementById('wa_phoneCol');
+  const nameCol = document.getElementById('wa_nameCol');
+  const loadStatus = document.getElementById('wa_loadStatus');
+  const countryCode = document.getElementById('wa_countryCode');
+  const messageBox = document.getElementById('wa_messageBox');
+  const messagePreview = document.getElementById('wa_messagePreview');
+  const generateBtn = document.getElementById('wa_generateBtn');
+  const genStatus = document.getElementById('wa_genStatus');
+  const result = document.getElementById('wa_result');
+  const sentCountEl = document.getElementById('wa_sentCount');
+  const totalCountEl = document.getElementById('wa_totalCount');
+  const progressFill = document.getElementById('wa_progressFill');
+  const contactTable = document.getElementById('wa_contactTable');
+  const downloadLog = document.getElementById('wa_downloadLog');
+  const sendCenter = document.getElementById('wa_sendCenter');
+
+  let workbook = null;
+  let currentHeader = [];
+  let currentRows = [];
+  let contacts = [];
+  let cursor = 0;
+  let currentIdx = -1;
+
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('drag');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files.length) handleFile(e.target.files[0]);
+  });
+
+  function handleFile(file){
+    loadStatus.textContent = 'Reading ' + file.name + '…';
+    loadStatus.className = 'status';
+    result.classList.remove('show');
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try{
+        const data = new Uint8Array(evt.target.result);
+        workbook = XLSX.read(data, { type: 'array' });
+        populateSheetSelect();
+        colSelectRow.classList.add('show');
+      }catch(err){
+        loadStatus.textContent = 'Could not read that file: ' + err.message;
+        loadStatus.className = 'status error';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function populateSheetSelect(){
+    sheetSelect.innerHTML = '';
+    workbook.SheetNames.forEach(name => {
+      const json = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: '' });
+      const nonEmpty = json.filter(r => r.some(c => c !== ''));
+      if (nonEmpty.length > 1){
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name + ' (' + (nonEmpty.length - 1) + ' rows)';
+        sheetSelect.appendChild(opt);
+      }
+    });
+    if (!sheetSelect.options.length){
+      loadStatus.textContent = 'No sheets with data were found in that file.';
+      loadStatus.className = 'status error';
+      return;
+    }
+    sheetSelect.addEventListener('change', loadSheet);
+    loadSheet();
+  }
+
+  function loadSheet(){
+    const name = sheetSelect.value;
+    const json = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: '' });
+    const nonEmpty = json.filter(r => r.some(c => c !== ''));
+    currentHeader = nonEmpty[0];
+    currentRows = nonEmpty.slice(1);
+
+    phoneCol.innerHTML = '';
+    nameCol.innerHTML = '';
+    currentHeader.forEach((h, i) => {
+      const o1 = document.createElement('option'); o1.value = i; o1.textContent = h || '(column ' + (i+1) + ')';
+      phoneCol.appendChild(o1);
+      const o2 = document.createElement('option'); o2.value = i; o2.textContent = h || '(column ' + (i+1) + ')';
+      nameCol.appendChild(o2);
+    });
+
+    const phoneGuess = currentHeader.findIndex(h => /whatsapp|phone|mobile|contact/i.test(String(h)));
+    const nameGuess = currentHeader.findIndex(h => /name/i.test(String(h)));
+    if (phoneGuess >= 0) phoneCol.value = phoneGuess;
+    if (nameGuess >= 0) nameCol.value = nameGuess;
+
+    loadStatus.textContent = 'Loaded "' + name + '" — ' + currentRows.length + ' rows.';
+    loadStatus.className = 'status ok';
+    generateBtn.disabled = false;
+  }
+
+  function updatePreview(){
+    const sample = 'Ama';
+    messagePreview.textContent = (messageBox.value || '').replace(/{{\s*name\s*}}/gi, sample) || '(message preview will appear here)';
+  }
+  messageBox.addEventListener('input', updatePreview);
+  updatePreview();
+
+  function cleanNumber(raw){
+    let digits = String(raw).replace(/\D/g, '');
+    digits = digits.replace(/^0+/, '');
+    return digits;
+  }
+
+  generateBtn.addEventListener('click', () => {
+    const pIdx = parseInt(phoneCol.value, 10);
+    const nIdx = nameCol.value !== '' ? parseInt(nameCol.value, 10) : -1;
+    const cc = countryCode.value.replace(/\D/g, '');
+
+    if (!cc){
+      genStatus.textContent = 'Enter a country code first.';
+      genStatus.className = 'status error';
+      return;
+    }
+
+    contacts = [];
+    let skipped = 0;
+    currentRows.forEach(row => {
+      const rawPhone = row[pIdx];
+      const digits = cleanNumber(rawPhone);
+      if (!digits || digits.length < 6){ skipped++; return; }
+      const name = nIdx >= 0 ? String(row[nIdx] || '').trim() : '';
+      contacts.push({
+        name: name || 'there',
+        rawPhone: rawPhone,
+        fullNumber: cc + digits,
+        sent: false
+      });
+    });
+
+    if (!contacts.length){
+      genStatus.textContent = 'No valid phone numbers found in that column.';
+      genStatus.className = 'status error';
+      result.classList.remove('show');
+      return;
+    }
+
+    genStatus.textContent = skipped ? ('Built list — skipped ' + skipped + ' row(s) with no usable number.') : 'Built list.';
+    genStatus.className = 'status ok';
+    cursor = 0;
+    renderTable();
+    renderSendCenter();
+    result.classList.add('show');
+  });
+
+  function personalize(name){
+    return (messageBox.value || '').replace(/{{\s*name\s*}}/gi, name);
+  }
+
+  function renderTable(){
+    totalCountEl.textContent = contacts.length;
+    const sentNow = contacts.filter(c => c.sent).length;
+    sentCountEl.textContent = sentNow;
+    progressFill.style.width = (contacts.length ? (sentNow / contacts.length * 100) : 0) + '%';
+
+    let html = '<thead><tr><th>Name</th><th>Number</th><th>Status</th><th></th></tr></thead><tbody>';
+    contacts.forEach((c, i) => {
+      html += '<tr class="' + (c.sent ? 'sent' : '') + '">' +
+        '<td>' + escapeHtml(c.name) + '</td>' +
+        '<td class="num">+' + c.fullNumber + '</td>' +
+        '<td><span class="badge ' + (c.sent ? 'sent' : '') + '">' + (c.sent ? 'Opened' : 'Pending') + '</span></td>' +
+        '<td><button class="secondary send-btn" data-idx="' + i + '">Open chat</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody>';
+    contactTable.innerHTML = html;
+
+    contactTable.querySelectorAll('.send-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        const c = contacts[idx];
+        const text = encodeURIComponent(personalize(c.name));
+        window.open('https://wa.me/' + c.fullNumber + '?text=' + text, '_blank');
+        c.sent = true;
+        renderTable();
+        renderSendCenter();
+      });
+    });
+  }
+
+  function findNextPendingFrom(start){
+    for (let i = 0; i < contacts.length; i++){
+      const idx = (start + i) % contacts.length;
+      if (!contacts[idx].sent) return idx;
+    }
+    return -1;
+  }
+
+  function renderSendCenter(){
+    const idx = findNextPendingFrom(cursor);
+    currentIdx = idx;
+    if (idx === -1){
+      sendCenter.innerHTML = '<div class="sc-done">🎉 Everyone on the list has been messaged.</div>';
+      return;
+    }
+    const c = contacts[idx];
+    sendCenter.innerHTML =
+      '<div class="sc-label">NEXT UP</div>' +
+      '<div class="sc-name">' + escapeHtml(c.name) + '</div>' +
+      '<div class="sc-number num">+' + c.fullNumber + '</div>' +
+      '<div class="sc-message">' + escapeHtml(personalize(c.name)) + '</div>' +
+      '<div class="sc-actions">' +
+        '<button class="wa-btn" id="wa_scSendBtn">Open WhatsApp &amp; mark sent</button>' +
+        '<button class="secondary" id="wa_scSkipBtn">Skip for now</button>' +
+      '</div>' +
+      '<div class="sc-hint">Press <b>Enter</b> to open the next chat without reaching for the mouse. After WhatsApp opens, just hit send there and come back.</div>';
+
+    document.getElementById('wa_scSendBtn').addEventListener('click', sendCurrentAndAdvance);
+    document.getElementById('wa_scSkipBtn').addEventListener('click', () => {
+      cursor = idx + 1;
+      renderSendCenter();
+    });
+  }
+
+  function sendCurrentAndAdvance(){
+    if (currentIdx === -1) return;
+    const c = contacts[currentIdx];
+    const text = encodeURIComponent(personalize(c.name));
+    window.open('https://wa.me/' + c.fullNumber + '?text=' + text, '_blank');
+    c.sent = true;
+    cursor = currentIdx + 1;
+    renderTable();
+    renderSendCenter();
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (!views.sender.classList.contains('show')) return;
+    const tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
+    if (!result.classList.contains('show')) return;
+    e.preventDefault();
+    sendCurrentAndAdvance();
+  });
+
+  downloadLog.addEventListener('click', () => {
+    if (!contacts.length) return;
+    let csv = 'Name,Number,Status\n';
+    contacts.forEach(c => {
+      csv += '"' + c.name.replace(/"/g,'""') + '","+' + c.fullNumber + '","' + (c.sent ? 'Opened' : 'Pending') + '"\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'whatsapp_send_log.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+})();
+
+/* ============================================================
+   TOOL 3: SKU PRICE LOOKUP
+   ============================================================ */
+(function(){
+  const DB_URL = 'https://docs.google.com/spreadsheets/d/1XiNqQdKtZ3LzBodrko1sN87mAspZYI-k/gviz/tq?tqx=out:csv&gid=2146792301';
+
+  const qDrop = document.getElementById('px_qDrop');
+  const qFileInput = document.getElementById('px_qFileInput');
+  const qFilename = document.getElementById('px_qFilename');
+  const qColSelectRow = document.getElementById('px_qColSelectRow');
+  const qSheetSelect = document.getElementById('px_qSheetSelect');
+  const qSkuCol = document.getElementById('px_qSkuCol');
+  const qStatus = document.getElementById('px_qStatus');
+
+  const matchBtn = document.getElementById('px_matchBtn');
+  const refreshBtn = document.getElementById('px_refreshBtn');
+  const matchStatus = document.getElementById('px_matchStatus');
+  const dbStatus = document.getElementById('px_dbStatus');
+  const result = document.getElementById('px_result');
+  const totalAmount = document.getElementById('px_totalAmount');
+  const totalMeta = document.getElementById('px_totalMeta');
+  const previewTable = document.getElementById('px_previewTable');
+  const downloadBtn = document.getElementById('px_downloadBtn');
+
+  let dbHeader = [], dbRows = [], dbSkuIdx = -1, dbPriceIdx = -1;
+  let qWorkbook = null, qHeader = [], qRows = [];
+  let dbLoaded = false, qLoaded = false;
+  let lastResults = [];
+  let qFileBaseName = 'sku_list';
+  let dbFetchStarted = false;
+
+  function setupDrop(dropEl, inputEl, onFile){
+    dropEl.addEventListener('click', () => inputEl.click());
+    dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('drag'); });
+    dropEl.addEventListener('dragleave', () => dropEl.classList.remove('drag'));
+    dropEl.addEventListener('drop', e => {
+      e.preventDefault();
+      dropEl.classList.remove('drag');
+      if (e.dataTransfer.files.length) onFile(e.dataTransfer.files[0]);
+    });
+    inputEl.addEventListener('change', e => {
+      if (e.target.files.length) onFile(e.target.files[0]);
+    });
+  }
+
+  function nonEmptyRows(sheet){
+    const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    return json.filter(r => r.some(c => c !== ''));
+  }
+
+  function fillColumnSelect(selectEl, header, guessRegex){
+    selectEl.innerHTML = '';
+    header.forEach((h, i) => {
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = h || '(column ' + (i+1) + ')';
+      selectEl.appendChild(o);
+    });
+    if (guessRegex){
+      const guess = header.findIndex(h => guessRegex.test(String(h)));
+      if (guess >= 0) selectEl.value = guess;
+    }
+  }
+
+  function checkReady(){
+    matchBtn.disabled = !(dbLoaded && qLoaded);
+  }
+
+  /* ---- price database: fetched silently in the background, never shown in the UI ---- */
+  async function loadDatabase(){
+    dbLoaded = false;
+    checkReady();
+    dbStatus.textContent = 'Loading price list…';
+    dbStatus.className = 'status';
+    try{
+      const res = await fetch(DB_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('network response was not ok');
+      const csvText = await res.text();
+      const wb = XLSX.read(csvText, { type: 'string' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = nonEmptyRows(sheet);
+      if (rows.length < 2) throw new Error('price list looks empty');
+      dbHeader = rows[0];
+      dbRows = rows.slice(1);
+      dbSkuIdx = dbHeader.findIndex(h => /sku|item\s*code|product\s*code|^code$/i.test(String(h)));
+      dbPriceIdx = dbHeader.findIndex(h => /wholesale/i.test(String(h)));
+      if (dbPriceIdx < 0) dbPriceIdx = dbHeader.findIndex(h => /cost/i.test(String(h)));
+      if (dbPriceIdx < 0) dbPriceIdx = dbHeader.findIndex(h => /price/i.test(String(h)));
+      if (dbSkuIdx < 0 || dbPriceIdx < 0) throw new Error('could not find SKU/price columns');
+      dbLoaded = true;
+      dbStatus.textContent = 'Price list ready — ' + dbRows.length + ' items.';
+      dbStatus.className = 'status ok';
+    }catch(err){
+      dbLoaded = false;
+      dbStatus.textContent = 'Could not load the price list right now.';
+      dbStatus.className = 'status error';
+    }
+    checkReady();
+  }
+
+  refreshBtn.addEventListener('click', loadDatabase);
+
+  /* lazily fetch the first time this tool view is opened */
+  document.getElementById('openPrice').addEventListener('click', () => {
+    if (!dbFetchStarted){
+      dbFetchStarted = true;
+      loadDatabase();
+    }
+  });
+
+  /* ---- query file ---- */
+  setupDrop(qDrop, qFileInput, file => {
+    qFileBaseName = file.name.replace(/\.[^.]+$/, '');
+    qStatus.textContent = 'Reading ' + file.name + '…';
+    qStatus.className = 'status';
+    qLoaded = false;
+    checkReady();
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try{
+        qWorkbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+        qFilename.textContent = file.name;
+        qFilename.style.display = 'block';
+        populateQSheetSelect();
+        qColSelectRow.classList.add('show');
+      }catch(err){
+        qStatus.textContent = 'Could not read that file: ' + err.message;
+        qStatus.className = 'status error';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  function populateQSheetSelect(){
+    qSheetSelect.innerHTML = '';
+    qWorkbook.SheetNames.forEach(name => {
+      const rows = nonEmptyRows(qWorkbook.Sheets[name]);
+      if (rows.length > 1){
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name + ' (' + (rows.length - 1) + ' rows)';
+        qSheetSelect.appendChild(opt);
+      }
+    });
+    qSheetSelect.onchange = loadQSheet;
+    if (qSheetSelect.options.length) loadQSheet();
+  }
+
+  function loadQSheet(){
+    const rows = nonEmptyRows(qWorkbook.Sheets[qSheetSelect.value]);
+    qHeader = rows[0];
+    qRows = rows.slice(1);
+    fillColumnSelect(qSkuCol, qHeader, /sku/i);
+    qStatus.textContent = 'Loaded "' + qSheetSelect.value + '" — ' + qRows.length + ' rows.';
+    qStatus.className = 'status ok';
+    qLoaded = true;
+    checkReady();
+  }
+
+  function normalizeSku(v){
+    return String(v).trim().toUpperCase();
+  }
+
+  function parsePrice(v){
+    if (typeof v === 'number') return v;
+    const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+    return isNaN(n) ? null : n;
+  }
+
+  matchBtn.addEventListener('click', () => {
+    const qSkuIdx = parseInt(qSkuCol.value, 10);
+
+    const priceMap = new Map();
+    dbRows.forEach(row => {
+      const sku = normalizeSku(row[dbSkuIdx]);
+      if (!sku) return;
+      const price = parsePrice(row[dbPriceIdx]);
+      if (price !== null) priceMap.set(sku, price);
+    });
+
+    lastResults = [];
+    let foundCount = 0, notFoundCount = 0, total = 0;
+    qRows.forEach(row => {
+      const rawSku = row[qSkuIdx];
+      const sku = normalizeSku(rawSku);
+      if (!sku) return;
+      const price = priceMap.has(sku) ? priceMap.get(sku) : null;
+      if (price !== null){
+        foundCount++;
+        total += price;
+      } else {
+        notFoundCount++;
+      }
+      lastResults.push({ sku: rawSku, price: price });
+    });
+
+    if (!lastResults.length){
+      matchStatus.textContent = 'No SKUs found in the selected column.';
+      matchStatus.className = 'status error';
+      result.classList.remove('show');
+      return;
+    }
+
+    matchStatus.textContent = 'Matched ' + foundCount + ' of ' + lastResults.length + ' SKUs against the database.';
+    matchStatus.className = notFoundCount ? 'status error' : 'status ok';
+
+    totalAmount.textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    totalMeta.textContent = foundCount + ' priced' + (notFoundCount ? ' · ' + notFoundCount + ' not found in database' : '');
+
+    let html = '<thead><tr><th>SKU</th><th>Wholesale Price</th><th>Status</th></tr></thead><tbody>';
+    lastResults.forEach(r => {
+      const isFound = r.price !== null;
+      html += '<tr class="' + (isFound ? '' : 'notfound') + '">' +
+        '<td>' + escapeHtml(r.sku) + '</td>' +
+        '<td class="num">' + (isFound ? r.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—') + '</td>' +
+        '<td><span class="badge ' + (isFound ? 'found' : 'notfound') + '">' + (isFound ? 'Found' : 'Not found') + '</span></td>' +
+        '</tr>';
+    });
+    html += '</tbody>';
+    previewTable.innerHTML = html;
+
+    result.classList.add('show');
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!lastResults.length) return;
+    const total = lastResults.reduce((sum, r) => sum + (r.price || 0), 0);
+    const outData = [['SKU', 'Wholesale Price', 'Status']];
+    lastResults.forEach(r => {
+      outData.push([r.sku, r.price !== null ? r.price : '', r.price !== null ? 'Found' : 'Not found']);
+    });
+    outData.push(['', '', '']);
+    outData.push(['TOTAL', total, '']);
+    const ws = XLSX.utils.aoa_to_sheet(outData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Priced SKUs');
+    XLSX.writeFile(wb, qFileBaseName + '_priced.xlsx');
+  });
+})();
+</script>
+</body>
+</html>

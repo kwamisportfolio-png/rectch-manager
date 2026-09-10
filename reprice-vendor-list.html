@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reprice a Vendor List</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#0B0B0B;
+    --panel:#141414;
+    --panel-2:#1B1B1B;
+    --line:#2E2E2E;
+    --text:#F2F2F0;
+    --muted:#8C8C89;
+    --px:#E0A144;
+    --px-dim:#B8813A;
+    --warn:#E0A144;
+    --pending:#333;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    min-height:100vh;
+  }
+  .app{max-width:900px;margin:0 auto;padding:36px 18px 60px;}
+
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:12px;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand .mark{width:10px;height:10px;background:var(--text);display:inline-block;}
+  .brand h1{font-size:15px;letter-spacing:0.12em;margin:0;font-weight:700;}
+  .lede{color:var(--muted);font-size:14px;margin:0 0 26px 0;max-width:60ch;line-height:1.5;}
+
+  h2.section-title{font-size:12px;letter-spacing:0.08em;color:var(--muted);margin:0 0 16px 0;font-weight:600;}
+  .panel{background:var(--panel);border:1px solid var(--line);padding:22px;margin-bottom:16px;}
+  .panel h2{font-size:12px;letter-spacing:0.06em;color:var(--muted);margin:0 0 16px 0;font-weight:600;}
+  .drop{
+    border:1.5px dashed var(--line);
+    padding:26px 18px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .drop:hover, .drop.drag{border-color:var(--text);background:var(--panel-2);}
+  .drop input{display:none;}
+  .drop-text{font-size:14px;}
+  .drop-hint{font-size:12px;color:var(--muted);margin-top:4px;}
+  .filename{margin-top:12px;font-family:'SF Mono','Menlo',monospace;font-size:12.5px;color:var(--text);display:none;}
+  .row{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px;}
+  .field{flex:1;min-width:160px;}
+  label.small{font-size:12px;color:var(--muted);display:block;margin-bottom:6px;}
+  select, input[type=text], textarea{
+    width:100%;
+    font-family:inherit;
+    font-size:14px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    background:var(--bg);
+    color:var(--text);
+  }
+  select:focus, input:focus{outline:none;border-color:var(--text);}
+  button{
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    padding:11px 20px;
+    border:1px solid var(--text);
+    background:var(--text);
+    color:#0B0B0B;
+    cursor:pointer;
+    transition:opacity .15s ease;
+  }
+  button:hover:not(:disabled){opacity:0.82;}
+  button:disabled{background:var(--pending);border-color:var(--pending);color:var(--muted);cursor:not-allowed;}
+  button.secondary{background:transparent;border:1px solid var(--line);color:var(--text);}
+  button.secondary:hover{border-color:var(--text);opacity:1;}
+  button.px-btn{background:var(--px);border-color:var(--px);color:#2A1B02;}
+  button.px-btn:hover:not(:disabled){background:var(--px-dim);color:#fff;opacity:1;}
+  .status{font-size:13px;color:var(--muted);margin-top:12px;min-height:16px;}
+  .status.error{color:#E07A5F;}
+  .status.ok{color:var(--text);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th, td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);}
+  th{color:var(--muted);font-weight:600;font-size:12px;}
+  .num{font-family:'SF Mono','Menlo',monospace;font-size:12.5px;}
+  .col-select{display:none;}
+  .col-select.show{display:flex;}
+
+  .px-result{display:none;}
+  .px-result.show{display:block;}
+  .px-total{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    padding:20px 22px;
+    margin-bottom:18px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .px-total .label{font-size:12px;color:var(--muted);letter-spacing:0.05em;}
+  .px-total .amount{font-size:28px;font-weight:700;}
+  .px-total .meta{font-size:12.5px;color:var(--muted);}
+  tr.notfound{color:var(--warn);}
+  tr.notfound td{color:var(--warn);}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;background:var(--pending);color:var(--muted);}
+  .badge.notfound{background:rgba(224,161,68,.15);color:var(--px);}
+  .badge.found{background:rgba(255,255,255,.08);color:var(--text);}
+  table.px-table{display:block;overflow-x:auto;white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand"><span class="mark"></span><h1>RECTCH MANAGER</h1></div>
+  </div>
+  <p class="lede">Reprice a Vendor List — upload a stripped SKU/Status list and add the wholesale prices and total back in.</p>
+
+  <div>
+    <h2 class="section-title">REPRICE A VENDOR LIST</h2>
+
+    <div class="panel">
+      <h2>1. SKU LIST</h2>
+      <div class="drop" id="rp_qDrop">
+        <input type="file" id="rp_qFileInput" accept=".xlsx,.xls,.csv">
+        <div class="drop-text">Click to choose the stripped list (SKU + Status), or drag one here</div>
+        <div class="drop-hint">.xlsx, .xls, or .csv</div>
+        <div class="filename" id="rp_qFilename"></div>
+      </div>
+      <div class="row col-select" id="rp_qColSelectRow">
+        <div class="field">
+          <label class="small">Sheet</label>
+          <select id="rp_qSheetSelect"></select>
+        </div>
+        <div class="field">
+          <label class="small">SKU column</label>
+          <select id="rp_qSkuCol"></select>
+        </div>
+      </div>
+      <div class="status" id="rp_qStatus"></div>
+    </div>
+
+    <div class="panel">
+      <h2>2. MATCH</h2>
+      <button class="px-btn" id="rp_matchBtn" disabled>Add prices back</button>
+      <button class="secondary" id="rp_refreshBtn" style="margin-left:8px;">Refresh price list</button>
+      <div class="status" id="rp_matchStatus"></div>
+      <div class="status" id="rp_dbStatus"></div>
+    </div>
+
+    <div class="panel px-result" id="rp_result">
+      <div class="px-total">
+        <div>
+          <div class="label">TOTAL WHOLESALE COST</div>
+          <div class="amount" id="rp_totalAmount">0.00</div>
+        </div>
+        <div class="meta" id="rp_totalMeta"></div>
+      </div>
+      <table class="px-table" id="rp_previewTable"></table>
+      <button id="rp_downloadBtn" style="margin-top:14px;">Download repriced sheet</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function escapeHtml(v){
+  return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+(function(){
+  const DB_URL = 'https://docs.google.com/spreadsheets/d/1XiNqQdKtZ3LzBodrko1sN87mAspZYI-k/gviz/tq?tqx=out:csv&gid=2146792301';
+
+  const qDrop = document.getElementById('rp_qDrop');
+  const qFileInput = document.getElementById('rp_qFileInput');
+  const qFilename = document.getElementById('rp_qFilename');
+  const qColSelectRow = document.getElementById('rp_qColSelectRow');
+  const qSheetSelect = document.getElementById('rp_qSheetSelect');
+  const qSkuCol = document.getElementById('rp_qSkuCol');
+  const qStatus = document.getElementById('rp_qStatus');
+
+  const matchBtn = document.getElementById('rp_matchBtn');
+  const refreshBtn = document.getElementById('rp_refreshBtn');
+  const matchStatus = document.getElementById('rp_matchStatus');
+  const dbStatus = document.getElementById('rp_dbStatus');
+  const result = document.getElementById('rp_result');
+  const totalAmount = document.getElementById('rp_totalAmount');
+  const totalMeta = document.getElementById('rp_totalMeta');
+  const previewTable = document.getElementById('rp_previewTable');
+  const downloadBtn = document.getElementById('rp_downloadBtn');
+
+  let dbHeader = [], dbRows = [], dbSkuIdx = -1, dbPriceIdx = -1;
+  let qWorkbook = null, qHeader = [], qRows = [];
+  let dbLoaded = false, qLoaded = false;
+  let lastResults = [];
+  let qFileBaseName = 'vendor_list';
+
+  function setupDrop(dropEl, inputEl, onFile){
+    dropEl.addEventListener('click', () => inputEl.click());
+    dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('drag'); });
+    dropEl.addEventListener('dragleave', () => dropEl.classList.remove('drag'));
+    dropEl.addEventListener('drop', e => {
+      e.preventDefault();
+      dropEl.classList.remove('drag');
+      if (e.dataTransfer.files.length) onFile(e.dataTransfer.files[0]);
+    });
+    inputEl.addEventListener('change', e => {
+      if (e.target.files.length) onFile(e.target.files[0]);
+    });
+  }
+
+  function nonEmptyRows(sheet){
+    const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    return json.filter(r => r.some(c => c !== ''));
+  }
+
+  function fillColumnSelect(selectEl, header, guessRegex){
+    selectEl.innerHTML = '';
+    header.forEach((h, i) => {
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = h || '(column ' + (i+1) + ')';
+      selectEl.appendChild(o);
+    });
+    if (guessRegex){
+      const guess = header.findIndex(h => guessRegex.test(String(h)));
+      if (guess >= 0) selectEl.value = guess;
+    }
+  }
+
+  function checkReady(){
+    matchBtn.disabled = !(dbLoaded && qLoaded);
+  }
+
+  /* ---- price database: fetched silently in the background ---- */
+  async function loadDatabase(){
+    dbLoaded = false;
+    checkReady();
+    dbStatus.textContent = 'Loading price list…';
+    dbStatus.className = 'status';
+    try{
+      const res = await fetch(DB_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('network response was not ok');
+      const csvText = await res.text();
+      const wb = XLSX.read(csvText, { type: 'string' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = nonEmptyRows(sheet);
+      if (rows.length < 2) throw new Error('price list looks empty');
+      dbHeader = rows[0];
+      dbRows = rows.slice(1);
+      dbSkuIdx = dbHeader.findIndex(h => /sku|item\s*code|product\s*code|^code$/i.test(String(h)));
+      dbPriceIdx = dbHeader.findIndex(h => /wholesale/i.test(String(h)));
+      if (dbPriceIdx < 0) dbPriceIdx = dbHeader.findIndex(h => /cost/i.test(String(h)));
+      if (dbPriceIdx < 0) dbPriceIdx = dbHeader.findIndex(h => /price/i.test(String(h)));
+      if (dbSkuIdx < 0 || dbPriceIdx < 0) throw new Error('could not find SKU/price columns');
+      dbLoaded = true;
+      dbStatus.textContent = 'Price list ready — ' + dbRows.length + ' items.';
+      dbStatus.className = 'status ok';
+    }catch(err){
+      dbLoaded = false;
+      dbStatus.textContent = 'Could not load the price list right now.';
+      dbStatus.className = 'status error';
+    }
+    checkReady();
+  }
+
+  refreshBtn.addEventListener('click', loadDatabase);
+  loadDatabase();
+
+  /* ---- vendor list file ---- */
+  setupDrop(qDrop, qFileInput, file => {
+    qFileBaseName = file.name.replace(/\.[^.]+$/, '');
+    qStatus.textContent = 'Reading ' + file.name + '…';
+    qStatus.className = 'status';
+    qLoaded = false;
+    checkReady();
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try{
+        qWorkbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+        qFilename.textContent = file.name;
+        qFilename.style.display = 'block';
+        populateQSheetSelect();
+        qColSelectRow.classList.add('show');
+      }catch(err){
+        qStatus.textContent = 'Could not read that file: ' + err.message;
+        qStatus.className = 'status error';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  function populateQSheetSelect(){
+    qSheetSelect.innerHTML = '';
+    qWorkbook.SheetNames.forEach(name => {
+      const rows = nonEmptyRows(qWorkbook.Sheets[name]);
+      if (rows.length > 1){
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name + ' (' + (rows.length - 1) + ' rows)';
+        qSheetSelect.appendChild(opt);
+      }
+    });
+    qSheetSelect.onchange = loadQSheet;
+    if (qSheetSelect.options.length) loadQSheet();
+  }
+
+  function loadQSheet(){
+    const rows = nonEmptyRows(qWorkbook.Sheets[qSheetSelect.value]);
+    qHeader = rows[0];
+    qRows = rows.slice(1);
+    fillColumnSelect(qSkuCol, qHeader, /sku/i);
+    qStatus.textContent = 'Loaded "' + qSheetSelect.value + '" — ' + qRows.length + ' rows.';
+    qStatus.className = 'status ok';
+    qLoaded = true;
+    checkReady();
+  }
+
+  function normalizeSku(v){
+    return String(v).trim().toUpperCase();
+  }
+
+  function parsePrice(v){
+    if (typeof v === 'number') return v;
+    const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+    return isNaN(n) ? null : n;
+  }
+
+  matchBtn.addEventListener('click', () => {
+    const qSkuIdx = parseInt(qSkuCol.value, 10);
+
+    const priceMap = new Map();
+    dbRows.forEach(row => {
+      const sku = normalizeSku(row[dbSkuIdx]);
+      if (!sku) return;
+      const price = parsePrice(row[dbPriceIdx]);
+      if (price !== null) priceMap.set(sku, price);
+    });
+
+    lastResults = [];
+    let foundCount = 0, notFoundCount = 0, total = 0;
+    qRows.forEach(row => {
+      const rawSku = row[qSkuIdx];
+      const sku = normalizeSku(rawSku);
+      // skip a trailing "TOTAL..." summary line carried over from a previous export
+      if (!sku || sku.startsWith('TOTAL')) return;
+      const price = priceMap.has(sku) ? priceMap.get(sku) : null;
+      if (price !== null){
+        foundCount++;
+        total += price;
+      } else {
+        notFoundCount++;
+      }
+      lastResults.push({ sku: rawSku, price: price });
+    });
+
+    if (!lastResults.length){
+      matchStatus.textContent = 'No SKUs found in the selected column.';
+      matchStatus.className = 'status error';
+      result.classList.remove('show');
+      return;
+    }
+
+    matchStatus.textContent = 'Matched ' + foundCount + ' of ' + lastResults.length + ' SKUs against the database.';
+    matchStatus.className = notFoundCount ? 'status error' : 'status ok';
+
+    totalAmount.textContent = total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    totalMeta.textContent = foundCount + ' priced' + (notFoundCount ? ' · ' + notFoundCount + ' not found in database' : '');
+
+    let html = '<thead><tr><th>SKU</th><th>Wholesale Price</th><th>Status</th></tr></thead><tbody>';
+    lastResults.forEach(r => {
+      const isFound = r.price !== null;
+      html += '<tr class="' + (isFound ? '' : 'notfound') + '">' +
+        '<td>' + escapeHtml(r.sku) + '</td>' +
+        '<td class="num">' + (isFound ? r.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—') + '</td>' +
+        '<td><span class="badge ' + (isFound ? 'found' : 'notfound') + '">' + (isFound ? 'Found' : 'Not found') + '</span></td>' +
+        '</tr>';
+    });
+    html += '</tbody>';
+    previewTable.innerHTML = html;
+
+    result.classList.add('show');
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!lastResults.length) return;
+    const total = lastResults.reduce((sum, r) => sum + (r.price || 0), 0);
+    const outData = [['SKU', 'Wholesale Price', 'Status']];
+    lastResults.forEach(r => {
+      outData.push([r.sku, r.price !== null ? r.price : '', r.price !== null ? 'Found' : 'Not found']);
+    });
+    outData.push(['', '', '']);
+    outData.push(['TOTAL', total, '']);
+    const ws = XLSX.utils.aoa_to_sheet(outData);
+    ws['!cols'] = [ { wch: 16 }, { wch: 16 }, { wch: 12 } ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Repriced SKUs');
+    XLSX.writeFile(wb, qFileBaseName + '_repriced.xlsx');
+  });
+})();
+</script>
+</body>
+</html>
